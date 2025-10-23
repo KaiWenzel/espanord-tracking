@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Tracking Bridge</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        /* Optional: Basic styling to show a brief loading screen */
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding-top: 50px;
+        }
+    </style>
+
+    <script>
+        !function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
+        pintrk('load', '2613724268480'); 
+        pintrk('page'); // Initial page view signal
+    </script>
+    </head>
+<body>
+    <h1>Loading...</h1>
+    <p>Please wait while we redirect you to the main page.</p>
+
+    <script>
+        // --- CONFIGURATION ---
+        const MAIN_DOMAIN = 'xn--espaord-7za.com'; // **IMPORTANT: Use your actual root domain (no 'www' or 'http://')**
+        const CANVA_DESTINATION_URL = 'xn--espaord-7za.com'; // **Your Canva Subdomain URL**
+        const AD_ID_PARAM = 'ad_id'; // Pinterest's standard Value Track parameter name
+        const COOKIE_NAME = 'campaign_ad_id';
+
+        // 1. Get the Ad ID from the URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const adId = urlParams.get(AD_ID_PARAM);
+        
+        // 2. Set the Cookie and Fire the Tracking Event
+        if (adId) {
+            
+            // Set the cookie on the root domain, accessible to all subdomains
+            // 'max-age' is set to 1 hour (3600 seconds) - adjust as needed
+            // 'secure' is required for HTTPS
+            document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+            
+            console.log(`[Bridge]: Ad ID Captured and set in cookie: ${adId}`);
+
+            // Fire the Initial Page Visit/Landing Event WITH the Ad ID
+            // This is the attribution for the click!
+            if (window.pintrk) {
+                pintrk('track', 'PageVisit', {
+                    ad_id: adId // Pass the ID as a piece of data with the event
+                });
+                console.log("[Bridge]: Pinterest 'PageVisit' event fired with Ad ID.");
+            }
+
+        } else {
+            console.log("[Bridge]: No Ad ID found. Redirecting without setting cookie or ID tracking.");
+        }
+
+        // 3. Redirect the user instantly to the Canva landing page
+        // Use a short delay (e.g., 50ms) to ensure the tracking script has time to execute
+        setTimeout(() => {
+            window.location.replace(CANVA_DESTINATION_URL);
+        }, 50); 
+        
+    </script>
+</body>
+</html>
