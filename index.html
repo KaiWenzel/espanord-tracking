@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -12,6 +11,12 @@
       padding-top: 60px;
     }
   </style>
+
+  <script>
+    // --- OFFICIAL PINTEREST BASE CODE (REINSTATED) ---
+    // This defines the pintrk function and handles its internal beacon logic
+    !function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
+  </script>
 </head>
 <body>
   <h1>Loading...</h1>
@@ -24,75 +29,43 @@
     const AD_ID_PARAM = 'epik';
     const COOKIE_NAME = 'campaign_ad_id';
     const PINTEREST_TID = '2612894781060'; 
-    const EVENT_ID = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2,9); 
-    
-    // **MAX DELAY:** Giving the browser 1 full second (1000ms) to send the beacon
-    const REDIRECT_DELAY_MS = 1000; 
-
-    // Helper to send Pinterest beacon
-    function sendPinterestBeacon(event, data) {
-      try {
-        // **REVERTED:** Back to 'application/json' (what Pinterest expects)
-        const beaconSent = navigator.sendBeacon("https://ct.pinterest.com/v3/",
-          new Blob([JSON.stringify({
-            event_name: event,
-            action_source: "website",
-            event_time: Math.floor(Date.now()/1000),
-            event_id: EVENT_ID,
-            tid: PINTEREST_TID,
-            custom_data: data || {},
-            user_data: {}
-          })], {type: 'application/json'}));
-
-        console.log(`[Bridge]: Beacon sent for ${event}. Success: ${beaconSent}`);
-        return beaconSent;
-      } catch (err) {
-        console.warn("[Bridge]: Beacon error:", err);
-        return false;
-      }
-    }
+    const REDIRECT_DELAY_MS = 1000; // 1 full second delay
 
     // Get adId immediately
     function getAdId() {
       return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
     }
 
-    function fireEventsAndRedirect(adId) {
-      // 1. Set cookie if adId exists
-      if (adId) {
-        document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-      }
+    // --- Main Logic ---
 
-      // 2. Prepare Custom Data Payload
-      let customData = {};
-      if (adId) {
-        customData.ad_id = adId;
-        console.log(`[Bridge]: Including ad_id: ${adId}`);
-      } else {
-        console.log(`[Bridge]: No ad_id found.`);
-      }
+    // Get the Ad ID
+    const adId = getAdId();
 
-      // 3. Fire Pinterest PageVisit
-      sendPinterestBeacon("PageVisit", customData); 
+    // 1. Load Pinterest Tag
+    pintrk('load', PINTEREST_TID);
 
-      // 4. Redirect URL construction
-      const redirectUrl = adId
-        ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
-        : CANVA_DESTINATION_URL;
+    // 2. Fire PageVisit Event
+    // When adId is present, we pass it as 'click_id' in custom_data
+    const eventData = adId ? { click_id: adId } : {};
+    pintrk('track', 'PageVisit', eventData); 
 
-      // Redirect after the maximum delay
-      setTimeout(() => {
-        console.log("[Bridge]: Redirecting now after max delay.");
-        window.location.replace(redirectUrl);
-      }, REDIRECT_DELAY_MS);
+    console.log(`[Bridge]: Fired Pinterest PageVisit. Click ID: ${adId || 'none'}`);
+
+    // 3. Set cookie (if Ad ID exists)
+    if (adId) {
+      document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
     }
 
-    // --- Main Execution Flow ---
-    
-    // Start the process immediately
-    const initialAdId = getAdId();
-    fireEventsAndRedirect(initialAdId);
-    
+    // 4. Redirect URL construction
+    const redirectUrl = adId
+      ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
+      : CANVA_DESTINATION_URL;
+
+    // 5. Redirect after the maximum safe delay
+    setTimeout(() => {
+      console.log("[Bridge]: Redirecting now after max delay.");
+      window.location.replace(redirectUrl);
+    }, REDIRECT_DELAY_MS);
   </script>
 </body>
 </html>
