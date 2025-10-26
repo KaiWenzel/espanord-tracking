@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -13,8 +13,8 @@
   </style>
 
   <script>
-    // --- OFFICIAL PINTEREST BASE CODE (REINSTATED) ---
-    // This defines the pintrk function and handles its internal beacon logic
+    // --- OFFICIAL PINTEREST BASE CODE (Must be first in <head>) ---
+    // This ensures the 'pintrk' function is defined immediately.
     !function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
   </script>
 </head>
@@ -45,11 +45,17 @@
     pintrk('load', PINTEREST_TID);
 
     // 2. Fire PageVisit Event
-    // When adId is present, we pass it as 'click_id' in custom_data
-    const eventData = adId ? { click_id: adId } : {};
-    pintrk('track', 'PageVisit', eventData); 
+    let eventData = {};
+    if (adId) {
+      // **CRITICAL FIX:** Using 'epk' instead of 'click_id' for direct attribution
+      eventData = { epk: adId };
+      console.log(`[Bridge]: Fired Pinterest PageVisit with EPK: ${adId}`);
+    } else {
+      console.log(`[Bridge]: Fired standard PageVisit.`);
+    }
 
-    console.log(`[Bridge]: Fired Pinterest PageVisit. Click ID: ${adId || 'none'}`);
+    // Queue the track call immediately for fastest execution
+    pintrk('track', 'PageVisit', eventData); 
 
     // 3. Set cookie (if Ad ID exists)
     if (adId) {
