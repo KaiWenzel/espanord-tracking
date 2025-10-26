@@ -1,102 +1,89 @@
 <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Españord Redirect</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding-top: 60px;
-    }
-  </style>
+  <meta charset="UTF-8">
+  <title>Españord Redirect</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 60px;
+    }
+  </style>
 </head>
 <body>
-  <h1>Loading...</h1>
-  <p>Your Spanish learning adventure is about to begin!</p>
+  <h1>Loading...</h1>
+  <p>Your Spanish learning adventure is about to begin!</p>
 
-  <script>
-    const MAIN_DOMAIN = 'españord.com';
-    const CANVA_DESTINATION_URL = 'https://españord.com';
-    const AD_ID_PARAM = 'epik';
-    const COOKIE_NAME = 'campaign_ad_id';
-    const PINTEREST_TID = '2612894781060';
-    const EVENT_ID = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
+  <script>
+    // --- Configuration ---
+    const MAIN_DOMAIN = 'españord.com';
+    const CANVA_DESTINATION_URL = 'https://españord.com';
+    const AD_ID_PARAM = 'epik';
+    const COOKIE_NAME = 'campaign_ad_id';
+    const PINTEREST_TID = '2612894781060'; 
+    // Unique ID for deduplication
+    const EVENT_ID = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2,9); 
 
-    // Helper to send Pinterest beacon
-    function sendPinterestBeacon(event, data) {
-      try {
-        navigator.sendBeacon("https://ct.pinterest.com/v3/",
-          new Blob([JSON.stringify({
-            event_name: event,
-            action_source: "website",
-            event_time: Math.floor(Date.now()/1000),
-            event_id: EVENT_ID,
-            tid: PINTEREST_TID,
-            custom_data: data || {},
-            user_data: {}
-          })], {type: 'application/json'}));
-        console.log(`[Bridge]: Beacon sent for ${event}`);
-      } catch (err) {
-        console.warn("[Bridge]: Beacon error:", err);
-      }
-    }
+    // Helper to send Pinterest beacon
+    function sendPinterestBeacon(event, data) {
+      try {
+        // *** ACTION 1 FIX: Changed 'application/json' to 'text/plain' ***
+        const beaconSent = navigator.sendBeacon("https://ct.pinterest.com/v3/",
+          new Blob([JSON.stringify({
+            event_name: event,
+            action_source: "website",
+            event_time: Math.floor(Date.now()/1000),
+            event_id: EVENT_ID,
+            tid: PINTEREST_TID,
+            custom_data: data || {},
+            user_data: {}
+          })], {type: 'text/plain'}));
 
-    // Load Pinterest core script
-    const s = document.createElement("script");
-    s.src = "https://s.pinimg.com/ct/core.js";
-    s.async = true;
-    document.head.appendChild(s);
+        console.log(`[Bridge]: Beacon sent for ${event}. Success: ${beaconSent}`);
+        return beaconSent; // Return true/false for debugging
+      } catch (err) {
+        console.warn("[Bridge]: Beacon error:", err);
+        return false;
+      }
+    }
 
-    // Poll for adId in URL
-    function getAdId() {
-      return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
-    }
+    // Poll for adId in URL
+    function getAdId() {
+      return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
+    }
 
-    function fireEventsAndRedirect(adId) {
-      // Set cookie if adId exists
-      if (adId) {
-        document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-      }
+    function fireEventsAndRedirect(adId) {
+      // 1. Set cookie if adId exists
+      if (adId) {
+        document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+      }
 
-      // Fire Pinterest PageVisit
-      if (typeof pintrk !== "undefined") {
-        try { pintrk('track', 'PageVisit'); } catch(err) { console.warn("Pinterest track failed:", err); }
-      }
+      // 2. Fire Pinterest PageVisit (Custom Beacon is the most reliable method here)
+      sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
 
-      sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
+      // 3. Redirect URL construction
+      const redirectUrl = adId
+        ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
+        : CANVA_DESTINATION_URL;
 
-      // Redirect fast
-      const redirectUrl = adId
-        ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
-        : CANVA_DESTINATION_URL;
+      // *** ACTION 3 FIX: Increased delay to 700ms ***
+      setTimeout(() => {
+        console.log("[Bridge]: Redirecting now.");
+        window.location.replace(redirectUrl);
+      }, 700);
+    }
 
-      setTimeout(() => window.location.replace(redirectUrl), 100);
-    }
+    // --- Main Execution Flow ---
+    
+    // Get adId immediately (no need to poll since it's in the URL on page load)
+    const initialAdId = getAdId();
 
-    s.onload = () => {
-      if (typeof pintrk === "undefined") {
-        window.pintrk = function() { (window.pintrk.queue = window.pintrk.queue || []).push(arguments) };
-      }
-      pintrk('load', PINTEREST_TID);
-
-      // Poll for adId up to 1s
-      let tries = 0;
-      const interval = setInterval(() => {
-        const adId = getAdId();
-        tries++;
-        if (adId || tries > 10) {
-          clearInterval(interval);
-          fireEventsAndRedirect(adId);
-        }
-      }, 100);
-    };
-
-    s.onerror = () => {
-      console.warn("[Bridge]: Pinterest script failed to load");
-      fireEventsAndRedirect(getAdId());
-    };
-  </script>
+    // Start the whole process immediately
+    fireEventsAndRedirect(initialAdId);
+    
+  </script>
 </body>
 </html>
