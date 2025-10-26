@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Españord</title>
+  <title>Españord Redirect</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
@@ -12,7 +12,6 @@
     }
   </style>
 </head>
-
 <body>
   <h1>Loading...</h1>
   <p>Your Spanish learning adventure is about to begin!</p>
@@ -23,27 +22,22 @@
     const AD_ID_PARAM = 'epik';
     const COOKIE_NAME = 'campaign_ad_id';
     const PINTEREST_TID = '2612894781060';
+    const EVENT_ID = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2,9);
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const adId = urlParams.get(AD_ID_PARAM);
-    const eventId = 'pv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-
-    if (adId)
-      document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-
+    // Helper to send Pinterest beacon
     function sendPinterestBeacon(event, data) {
       try {
-        const sent = navigator.sendBeacon("https://ct.pinterest.com/v3/",
+        navigator.sendBeacon("https://ct.pinterest.com/v3/",
           new Blob([JSON.stringify({
             event_name: event,
             action_source: "website",
-            event_time: Math.floor(Date.now() / 1000),
-            event_id: eventId,
+            event_time: Math.floor(Date.now()/1000),
+            event_id: EVENT_ID,
             tid: PINTEREST_TID,
             custom_data: data || {},
             user_data: {}
           })], {type: 'application/json'}));
-        console.log(sent ? `[Bridge]: Beacon sent.` : `[Bridge]: Beacon failed.`);
+        console.log(`[Bridge]: Beacon sent for ${event}`);
       } catch (err) {
         console.warn("[Bridge]: Beacon error:", err);
       }
@@ -53,22 +47,50 @@
     const s = document.createElement("script");
     s.src = "https://s.pinimg.com/ct/core.js";
     s.async = true;
-    s.onload = function() {
+    document.head.appendChild(s);
+
+    s.onload = () => {
       if (typeof pintrk === "undefined") {
         window.pintrk = function() { (window.pintrk.queue = window.pintrk.queue || []).push(arguments) };
       }
       pintrk('load', PINTEREST_TID);
-      setTimeout(() => {
-        pintrk('track', 'PageVisit');
-        sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
-        setTimeout(() => window.location.replace(CANVA_DESTINATION_URL), 800);
+
+      // Poll for adId from URL
+      let adId;
+      let tries = 0;
+      const interval = setInterval(() => {
+        const params = new URLSearchParams(window.location.search);
+        adId = params.get(AD_ID_PARAM);
+        tries++;
+
+        if (adId || tries > 10) { // timeout after ~1s
+          clearInterval(interval);
+
+          // Set cookie on root domain
+          if (adId) {
+            document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+          }
+
+          // Fire PageVisit events
+          pintrk('track', 'PageVisit');
+          sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
+
+          // Redirect to Canva destination
+          const redirectUrl = adId
+            ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
+            : CANVA_DESTINATION_URL;
+
+          setTimeout(() => window.location.replace(redirectUrl), 100);
+        }
       }, 100);
     };
-    s.onerror = function() {
-      sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
-      setTimeout(() => window.location.replace(CANVA_DESTINATION_URL), 800);
+
+    s.onerror = () => {
+      console.warn("[Bridge]: Pinterest script failed to load");
+      // Still send beacon without adId
+      sendPinterestBeacon("PageVisit", { ad_id: "none" });
+      setTimeout(() => window.location.replace(CANVA_DESTINATION_URL), 100);
     };
-    document.head.appendChild(s);
   </script>
 </body>
 </html>
