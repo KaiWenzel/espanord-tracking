@@ -1,72 +1,77 @@
 <!DOCTYPE html>
 <html> 
 <head>
-    <title>Tracking Bridge</title>
+    <title>Españord</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        /* Optional: Basic styling to show a brief loading screen */
         body {
             font-family: Arial, sans-serif;
             text-align: center;
             padding-top: 50px;
         }
     </style>
+</head>  
 
-    <script>
-        !function(e){if(!window.pintrk){window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var n=window.pintrk;n.queue=[],n.version="3.0";var t=document.createElement("script");t.async=!0,t.src=e;var r=document.getElementsByTagName("script")[0];r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
-        pintrk('load', '2612894781060'); 
-        pintrk('page'); // Initial page view signal
-    </script>
-    <noscript>
-        <img height="1" width="1" style="display:none;" alt=""
-          src="https://ct.pinterest.com/v3/?event=init&tid=2612894781060&pd[em]=<hashed_email_address>&noscript=1" />
-    </noscript>
-    </head>  
 <body>
     <h1>Loading...</h1>
     <p>Your Spanish learning adventure is about to begin!</p>  
 
     <script> 
         // --- CONFIGURATION ---
-        const MAIN_DOMAIN = 'https://españord.com'; // **IMPORTANT: Use your actual root domain (no 'www' or 'http://')**
-        const CANVA_DESTINATION_URL = 'https://españord.com'; // **Your Canva Subdomain URL**
-        const AD_ID_PARAM = 'epik'; // Pinterest's standard Value Track parameter name
+        const MAIN_DOMAIN = 'españord.com';
+        const CANVA_DESTINATION_URL = 'https://españord.com';
+        const AD_ID_PARAM = 'epik';
         const COOKIE_NAME = 'campaign_ad_id';
+        const PINTEREST_TID = '2612894781060';
 
-        // 1. Get the Ad ID from the URL
+        // --- Extract ad ID from URL ---
         const urlParams = new URLSearchParams(window.location.search);
         const adId = urlParams.get(AD_ID_PARAM);
-        
-        // 2. Set the Cookie and Fire the Tracking Event
-        if (adId) {
-            
-            // Set the cookie on the root domain, accessible to all subdomains
-            // 'max-age' is set to 1 hour (3600 seconds) - adjust as needed
-            // 'secure' is required for HTTPS
-            document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-            
-            console.log(`[Bridge]: Ad ID Captured and set in cookie: ${adId}`);
 
-            // Fire the Initial Page Visit/Landing Event WITH the Ad ID
-            // This is the attribution for the click!
-            if (window.pintrk) {
-                pintrk('track', 'PageVisit', {
-                    ad_id: adId // Pass the ID as a piece of data with the event
-                });
-                console.log("[Bridge]: Pinterest 'PageVisit' event fired with Ad ID.");
+        // --- Generate unique event ID ---
+        const eventId = 'pv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+
+        // --- Helper to send Pinterest event via Beacon ---
+        function sendPinterestBeacon(event, data) {
+            const endpoint = "https://ct.pinterest.com/v3/";
+            const payload = {
+                event_name: event,
+                action_source: "website",
+                event_time: Math.floor(Date.now() / 1000),
+                event_id: eventId,
+                tid: PINTEREST_TID,
+                custom_data: data || {},
+                user_data: {}
+            };
+
+            try {
+                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+                const sent = navigator.sendBeacon(endpoint, blob);
+                console.log(sent 
+                    ? `[Bridge]: Beacon sent successfully for event '${event}' with ID ${eventId}.`
+                    : `[Bridge]: Beacon failed to send.`);
+            } catch (err) {
+                console.warn("[Bridge]: Beacon error:", err);
             }
-
-        } else {
-            console.log("[Bridge]: No Ad ID found. Redirecting without setting cookie or ID tracking.");
         }
 
-        // 3. Redirect the user instantly to the Canva landing page
-        // Use a short delay (e.g., 50ms) to ensure the tracking script has time to execute
+        // --- Main tracking + redirect logic ---
+        if (adId) {
+            // Set cookie on root domain
+            document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+            console.log(`[Bridge]: Ad ID captured: ${adId}`);
+
+            // Send Pinterest event
+            sendPinterestBeacon("PageVisit", { ad_id: adId });
+        } else {
+            console.log("[Bridge]: No Ad ID found in URL.");
+        }
+
+        // Redirect after a short delay
         setTimeout(() => {
             window.location.replace(CANVA_DESTINATION_URL);
-        }, 300); 
-        
+        }, 200);
     </script>
 </body>
 </html>
