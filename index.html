@@ -49,56 +49,53 @@
     s.async = true;
     document.head.appendChild(s);
 
+    // Poll for adId in URL
+    function getAdId() {
+      return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
+    }
+
+    function fireEventsAndRedirect(adId) {
+      // Set cookie if adId exists
+      if (adId) {
+        document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+      }
+
+      // Fire Pinterest PageVisit
+      if (typeof pintrk !== "undefined") {
+        try { pintrk('track', 'PageVisit'); } catch(err) { console.warn("Pinterest track failed:", err); }
+      }
+
+      sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
+
+      // Redirect fast
+      const redirectUrl = adId
+        ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
+        : CANVA_DESTINATION_URL;
+
+      setTimeout(() => window.location.replace(redirectUrl), 100);
+    }
+
     s.onload = () => {
       if (typeof pintrk === "undefined") {
         window.pintrk = function() { (window.pintrk.queue = window.pintrk.queue || []).push(arguments) };
       }
       pintrk('load', PINTEREST_TID);
 
-      // Poll for adId from URL
-      let adId;
+      // Poll for adId up to 1s
       let tries = 0;
       const interval = setInterval(() => {
-        const params = new URLSearchParams(window.location.search);
-        adId = params.get(AD_ID_PARAM);
+        const adId = getAdId();
         tries++;
-
-        if (adId || tries > 10) { // timeout after ~1s
+        if (adId || tries > 10) {
           clearInterval(interval);
-
-          // Set cookie on root domain
-          if (adId) {
-            document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-          }
-
-          // Fire PageVisit events
-          pintrk('track', 'PageVisit');
-          sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
-
-          // Redirect to Canva destination
-          const redirectUrl = adId
-            ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
-            : CANVA_DESTINATION_URL;
-
-          setTimeout(() => window.location.replace(redirectUrl), 100);
+          fireEventsAndRedirect(adId);
         }
       }, 100);
     };
-  // Fire PageVisit regardless of adId
-  setTimeout(() => {
-    if (typeof pintrk !== "undefined") {
-      pintrk('track', 'PageVisit', { user_data: { em: hashedEmail || '' } });
-      console.log("PageVisit fired");
-    } else {
-      console.warn("Pinterest script not loaded, cannot fire PageVisit");
-    }
-  }, 500);
 
     s.onerror = () => {
       console.warn("[Bridge]: Pinterest script failed to load");
-      // Still send beacon without adId
-      sendPinterestBeacon("PageVisit", { ad_id: "none" });
-      setTimeout(() => window.location.replace(CANVA_DESTINATION_URL), 100);
+      fireEventsAndRedirect(getAdId());
     };
   </script>
 </body>
