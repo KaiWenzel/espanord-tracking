@@ -1,95 +1,116 @@
 <!DOCTYPE html>
-<html> 
+<html lang="en">
 <head>
-    <!-- Pinterest Tag -->
-    <script>
-    !function(e){if(!window.pintrk){window.pintrk = function () {
-    window.pintrk.queue.push(Array.prototype.slice.call(arguments))};var
-      n=window.pintrk;n.queue=[],n.version="3.0";var
-      t=document.createElement("script");t.async=!0,t.src=e;var
-      r=document.getElementsByTagName("script")[0];
-      r.parentNode.insertBefore(t,r)}}("https://s.pinimg.com/ct/core.js");
-    pintrk('load', '2612894781060', {em: '<user_email_address>'});
-    pintrk('page');
-    </script>
-    <noscript>
+  <meta charset="UTF-8">
+  <title>Españord</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <!-- Pinterest Base Tag -->
+  <script>
+  !function(e){
+    if(!window.pintrk){
+      window.pintrk = function () {
+        window.pintrk.queue.push(Array.prototype.slice.call(arguments))
+      };
+      var n = window.pintrk;
+      n.queue = [];
+      n.version = "3.0";
+      var t = document.createElement("script");
+      t.async = true;
+      t.src = e;
+      t.onload = function() {
+        console.log("[Pinterest]: core.js loaded successfully.");
+        pintrk('load', '2612894781060');
+        pintrk('page');
+      };
+      var r = document.getElementsByTagName("script")[0];
+      r.parentNode.insertBefore(t, r);
+    }
+  }("https://s.pinimg.com/ct/core.js");
+  </script>
+  <noscript>
     <img height="1" width="1" style="display:none;" alt=""
-      src="https://ct.pinterest.com/v3/?event=init&tid=2612894781060&pd[em]=<hashed_email_address>&noscript=1" />
-    </noscript>
-    <!-- end Pinterest Tag -->
+      src="https://ct.pinterest.com/v3/?event=init&tid=2612894781060&noscript=1" />
+  </noscript>
+  <!-- End Pinterest Base Tag -->
 
-
-    <title>Españord</title>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            text-align: center;
-            padding-top: 50px;
-        }
-    </style>
-</head>  
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding-top: 60px;
+    }
+  </style>
+</head>
 
 <body>
-    <h1>Loading...</h1>
-    <p>Your Spanish learning adventure is about to begin!</p>  
+  <h1>Loading...</h1>
+  <p>Your Spanish learning adventure is about to begin!</p>
 
-    <script> 
-        // --- CONFIGURATION ---
-        const MAIN_DOMAIN = 'españord.com';
-        const CANVA_DESTINATION_URL = 'https://españord.com';
-        const AD_ID_PARAM = 'epik';
-        const COOKIE_NAME = 'campaign_ad_id';
-        const PINTEREST_TID = '2612894781060';
+  <script>
+    // --- CONFIGURATION ---
+    const MAIN_DOMAIN = 'españord.com';
+    const CANVA_DESTINATION_URL = 'https://españord.com';
+    const AD_ID_PARAM = 'epik';
+    const COOKIE_NAME = 'campaign_ad_id';
+    const PINTEREST_TID = '2612894781060';
 
-        // --- Extract ad ID from URL ---
-        const urlParams = new URLSearchParams(window.location.search);
-        const adId = urlParams.get(AD_ID_PARAM);
+    // --- Extract ad ID from URL ---
+    const urlParams = new URLSearchParams(window.location.search);
+    const adId = urlParams.get(AD_ID_PARAM);
 
-        // --- Generate unique event ID ---
-        const eventId = 'pv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    // --- Generate unique event ID ---
+    const eventId = 'pv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-        // --- Helper to send Pinterest event via Beacon ---
-        function sendPinterestBeacon(event, data) {
-            const endpoint = "https://ct.pinterest.com/v3/";
-            const payload = {
-                event_name: event,
-                action_source: "website",
-                event_time: Math.floor(Date.now() / 1000),
-                event_id: eventId,
-                tid: PINTEREST_TID,
-                custom_data: data || {},
-                user_data: {}
-            };
+    // --- Store ad ID in cookie if found ---
+    if (adId) {
+      document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+      console.log(`[Bridge]: Ad ID captured: ${adId}`);
+    } else {
+      console.log("[Bridge]: No Ad ID found in URL.");
+    }
 
-            try {
-                const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-                const sent = navigator.sendBeacon(endpoint, blob);
-                console.log(sent 
-                    ? `[Bridge]: Beacon sent successfully for event '${event}' with ID ${eventId}.`
-                    : `[Bridge]: Beacon failed to send.`);
-            } catch (err) {
-                console.warn("[Bridge]: Beacon error:", err);
-            }
-        }
+    // --- Fallback Pinterest beacon (ensures event sends even if base tag fails) ---
+    function sendPinterestBeacon(event, data) {
+      const endpoint = "https://ct.pinterest.com/v3/";
+      const payload = {
+        event_name: event,
+        action_source: "website",
+        event_time: Math.floor(Date.now() / 1000),
+        event_id: eventId,
+        tid: PINTEREST_TID,
+        custom_data: data || {},
+        user_data: {}
+      };
+      try {
+        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+        const sent = navigator.sendBeacon(endpoint, blob);
+        console.log(sent 
+          ? `[Bridge]: Beacon sent successfully for event '${event}' with ID ${eventId}.`
+          : `[Bridge]: Beacon failed to send.`);
+      } catch (err) {
+        console.warn("[Bridge]: Beacon error:", err);
+      }
+    }
 
-        // --- Main tracking + redirect logic ---
-        if (adId) {
-            // Set cookie on root domain
-            document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-            console.log(`[Bridge]: Ad ID captured: ${adId}`);
+    // --- Wait for Pinterest tag to load, then fire both methods ---
+    const waitForPinterest = setInterval(() => {
+      if (typeof pintrk === "function") {
+        clearInterval(waitForPinterest);
 
-            // Send Pinterest event
-            sendPinterestBeacon("PageVisit", { ad_id: adId });
-        } else {
-            console.log("[Bridge]: No Ad ID found in URL.");
-        }
+        // Fire official tag
+        pintrk('track', 'PageVisit');
+        console.log("[Bridge]: Pinterest PageVisit event fired via base tag.");
 
-        // Redirect after a short delay
+        // Fire redundant beacon (backup)
+        sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
+
+        // Redirect after ensuring both events had time to process
         setTimeout(() => {
-            window.location.replace(CANVA_DESTINATION_URL);
-        }, 700);
-    </script>
+          window.location.replace(CANVA_DESTINATION_URL);
+        }, 1200);
+      }
+    }, 100);
+  </script>
 </body>
 </html>
