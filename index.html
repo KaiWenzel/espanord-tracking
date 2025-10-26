@@ -1,38 +1,9 @@
-<!DOCTYPE html>
+<<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Españord</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-  <!-- Pinterest Base Tag -->
-  <script>
-  !function(e){
-    if(!window.pintrk){
-      window.pintrk = function () {
-        window.pintrk.queue.push(Array.prototype.slice.call(arguments))
-      };
-      var n = window.pintrk;
-      n.queue = [];
-      n.version = "3.0";
-      var t = document.createElement("script");
-      t.async = true;
-      t.src = e;
-      t.onload = function() {
-        console.log("[Pinterest]: core.js loaded successfully.");
-        pintrk('load', '2612894781060');
-        pintrk('page');
-      };
-      var r = document.getElementsByTagName("script")[0];
-      r.parentNode.insertBefore(t, r);
-    }
-  }("https://s.pinimg.com/ct/core.js");
-  </script>
-  <noscript>
-    <img height="1" width="1" style="display:none;" alt=""
-      src="https://ct.pinterest.com/v3/?event=init&tid=2612894781060&noscript=1" />
-  </noscript>
-  <!-- End Pinterest Base Tag -->
 
   <style>
     body {
@@ -55,14 +26,10 @@
     const COOKIE_NAME = 'campaign_ad_id';
     const PINTEREST_TID = '2612894781060';
 
-    // --- Extract ad ID from URL ---
     const urlParams = new URLSearchParams(window.location.search);
     const adId = urlParams.get(AD_ID_PARAM);
-
-    // --- Generate unique event ID ---
     const eventId = 'pv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-    // --- Store ad ID in cookie if found ---
     if (adId) {
       document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
       console.log(`[Bridge]: Ad ID captured: ${adId}`);
@@ -70,7 +37,7 @@
       console.log("[Bridge]: No Ad ID found in URL.");
     }
 
-    // --- Fallback Pinterest beacon (ensures event sends even if base tag fails) ---
+    // --- Beacon fallback ---
     function sendPinterestBeacon(event, data) {
       const endpoint = "https://ct.pinterest.com/v3/";
       const payload = {
@@ -86,31 +53,52 @@
         const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
         const sent = navigator.sendBeacon(endpoint, blob);
         console.log(sent 
-          ? `[Bridge]: Beacon sent successfully for event '${event}' with ID ${eventId}.`
+          ? `[Bridge]: Beacon sent successfully for event '${event}'.`
           : `[Bridge]: Beacon failed to send.`);
       } catch (err) {
         console.warn("[Bridge]: Beacon error:", err);
       }
     }
 
-    // --- Wait for Pinterest tag to load, then fire both methods ---
-    const waitForPinterest = setInterval(() => {
-      if (typeof pintrk === "function") {
-        clearInterval(waitForPinterest);
+    // --- Load Pinterest base script dynamically ---
+    const pinterestScript = document.createElement("script");
+    pinterestScript.src = "https://s.pinimg.com/ct/core.js";
+    pinterestScript.async = true;
+    pinterestScript.onload = function() {
+      console.log("[Pinterest]: core.js loaded successfully.");
+      if (typeof pintrk === "undefined") {
+        window.pintrk = function() { (window.pintrk.queue = window.pintrk.queue || []).push(arguments) };
+      }
+      pintrk('load', PINTEREST_TID);
+      
+      // Give the SDK ~300ms to initialize before sending the event
+      setTimeout(() => {
+        try {
+          pintrk('track', 'PageVisit');
+          console.log("[Bridge]: Pinterest PageVisit event fired via base tag.");
+        } catch (err) {
+          console.warn("[Bridge]: pintrk failed, using beacon only:", err);
+        }
 
-        // Fire official tag
-        pintrk('track', 'PageVisit');
-        console.log("[Bridge]: Pinterest PageVisit event fired via base tag.");
-
-        // Fire redundant beacon (backup)
+        // Always send beacon backup
         sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
 
-        // Redirect after ensuring both events had time to process
+        // Redirect after safe delay
         setTimeout(() => {
           window.location.replace(CANVA_DESTINATION_URL);
-        }, 1200);
-      }
-    }, 100);
+        }, 1800);
+      }, 300);
+    };
+
+    pinterestScript.onerror = function() {
+      console.warn("[Pinterest]: Failed to load core.js, sending beacon only.");
+      sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
+      setTimeout(() => {
+        window.location.replace(CANVA_DESTINATION_URL);
+      }, 1500);
+    };
+
+    document.head.appendChild(pinterestScript);
   </script>
 </body>
 </html>
