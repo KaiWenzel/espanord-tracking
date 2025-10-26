@@ -84,6 +84,15 @@
         }
       }, 100);
     };
+  // Fire PageVisit regardless of adId
+  setTimeout(() => {
+    if (typeof pintrk !== "undefined") {
+      pintrk('track', 'PageVisit', { user_data: { em: hashedEmail || '' } });
+      console.log("PageVisit fired");
+    } else {
+      console.warn("Pinterest script not loaded, cannot fire PageVisit");
+    }
+  }, 500);
 
     s.onerror = () => {
       console.warn("[Bridge]: Pinterest script failed to load");
