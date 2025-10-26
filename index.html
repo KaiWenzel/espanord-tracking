@@ -30,7 +30,7 @@
     // Helper to send Pinterest beacon
     function sendPinterestBeacon(event, data) {
       try {
-        // *** ACTION 1 FIX: Changed 'application/json' to 'text/plain' ***
+        // **CRITICAL FIX:** Using 'text/plain' to avoid sendBeacon CORS issues
         const beaconSent = navigator.sendBeacon("https://ct.pinterest.com/v3/",
           new Blob([JSON.stringify({
             event_name: event,
@@ -38,19 +38,19 @@
             event_time: Math.floor(Date.now()/1000),
             event_id: EVENT_ID,
             tid: PINTEREST_TID,
-            custom_data: data || {},
+            custom_data: data || {}, // Will contain the ad_id if present
             user_data: {}
           })], {type: 'text/plain'}));
 
         console.log(`[Bridge]: Beacon sent for ${event}. Success: ${beaconSent}`);
-        return beaconSent; // Return true/false for debugging
+        return beaconSent;
       } catch (err) {
         console.warn("[Bridge]: Beacon error:", err);
         return false;
       }
     }
 
-    // Poll for adId in URL
+    // Get adId immediately
     function getAdId() {
       return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
     }
@@ -61,15 +61,25 @@
         document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
       }
 
-      // 2. Fire Pinterest PageVisit (Custom Beacon is the most reliable method here)
-      sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
+      // 2. Prepare Custom Data Payload
+      let customData = {};
+      if (adId) {
+        // Only include ad_id if a value was found
+        customData.ad_id = adId;
+        console.log(`[Bridge]: Including ad_id: ${adId}`);
+      } else {
+        console.log(`[Bridge]: No ad_id found, sending standard PageVisit.`);
+      }
 
-      // 3. Redirect URL construction
+      // 3. Fire Pinterest PageVisit
+      sendPinterestBeacon("PageVisit", customData); 
+
+      // 4. Redirect URL construction
       const redirectUrl = adId
         ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
         : CANVA_DESTINATION_URL;
 
-      // *** ACTION 3 FIX: Increased delay to 700ms ***
+      // **TIMING FIX:** Increased delay to 700ms for reliable beacon transmission
       setTimeout(() => {
         console.log("[Bridge]: Redirecting now.");
         window.location.replace(redirectUrl);
@@ -78,12 +88,9 @@
 
     // --- Main Execution Flow ---
     
-    // Get adId immediately (no need to poll since it's in the URL on page load)
+    // Start the process immediately
     const initialAdId = getAdId();
-
-    // Start the whole process immediately
     fireEventsAndRedirect(initialAdId);
     
   </script>
 </body>
-</html>
