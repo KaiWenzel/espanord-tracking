@@ -24,13 +24,15 @@
     const AD_ID_PARAM = 'epik';
     const COOKIE_NAME = 'campaign_ad_id';
     const PINTEREST_TID = '2612894781060'; 
-    // Unique ID for deduplication
     const EVENT_ID = 'pv_' + Date.now() + '_' + Math.random().toString(36).slice(2,9); 
+    
+    // **MAX DELAY:** Giving the browser 1 full second (1000ms) to send the beacon
+    const REDIRECT_DELAY_MS = 1000; 
 
     // Helper to send Pinterest beacon
     function sendPinterestBeacon(event, data) {
       try {
-        // **CRITICAL FIX:** Using 'text/plain' to avoid sendBeacon CORS issues
+        // **REVERTED:** Back to 'application/json' (what Pinterest expects)
         const beaconSent = navigator.sendBeacon("https://ct.pinterest.com/v3/",
           new Blob([JSON.stringify({
             event_name: event,
@@ -38,9 +40,9 @@
             event_time: Math.floor(Date.now()/1000),
             event_id: EVENT_ID,
             tid: PINTEREST_TID,
-            custom_data: data || {}, // Will contain the ad_id if present
+            custom_data: data || {},
             user_data: {}
-          })], {type: 'text/plain'}));
+          })], {type: 'application/json'}));
 
         console.log(`[Bridge]: Beacon sent for ${event}. Success: ${beaconSent}`);
         return beaconSent;
@@ -64,11 +66,10 @@
       // 2. Prepare Custom Data Payload
       let customData = {};
       if (adId) {
-        // Only include ad_id if a value was found
         customData.ad_id = adId;
         console.log(`[Bridge]: Including ad_id: ${adId}`);
       } else {
-        console.log(`[Bridge]: No ad_id found, sending standard PageVisit.`);
+        console.log(`[Bridge]: No ad_id found.`);
       }
 
       // 3. Fire Pinterest PageVisit
@@ -79,11 +80,11 @@
         ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
         : CANVA_DESTINATION_URL;
 
-      // **TIMING FIX:** Increased delay to 700ms for reliable beacon transmission
+      // Redirect after the maximum delay
       setTimeout(() => {
-        console.log("[Bridge]: Redirecting now.");
+        console.log("[Bridge]: Redirecting now after max delay.");
         window.location.replace(redirectUrl);
-      }, 700);
+      }, REDIRECT_DELAY_MS);
     }
 
     // --- Main Execution Flow ---
@@ -94,3 +95,4 @@
     
   </script>
 </body>
+</html>
