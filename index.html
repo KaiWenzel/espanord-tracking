@@ -1,10 +1,9 @@
-<<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Españord</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -19,7 +18,6 @@
   <p>Your Spanish learning adventure is about to begin!</p>
 
   <script>
-    // --- CONFIGURATION ---
     const MAIN_DOMAIN = 'españord.com';
     const CANVA_DESTINATION_URL = 'https://españord.com';
     const AD_ID_PARAM = 'epik';
@@ -30,75 +28,47 @@
     const adId = urlParams.get(AD_ID_PARAM);
     const eventId = 'pv_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
 
-    if (adId) {
+    if (adId)
       document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-      console.log(`[Bridge]: Ad ID captured: ${adId}`);
-    } else {
-      console.log("[Bridge]: No Ad ID found in URL.");
-    }
 
-    // --- Beacon fallback ---
     function sendPinterestBeacon(event, data) {
-      const endpoint = "https://ct.pinterest.com/v3/";
-      const payload = {
-        event_name: event,
-        action_source: "website",
-        event_time: Math.floor(Date.now() / 1000),
-        event_id: eventId,
-        tid: PINTEREST_TID,
-        custom_data: data || {},
-        user_data: {}
-      };
       try {
-        const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
-        const sent = navigator.sendBeacon(endpoint, blob);
-        console.log(sent 
-          ? `[Bridge]: Beacon sent successfully for event '${event}'.`
-          : `[Bridge]: Beacon failed to send.`);
+        const sent = navigator.sendBeacon("https://ct.pinterest.com/v3/",
+          new Blob([JSON.stringify({
+            event_name: event,
+            action_source: "website",
+            event_time: Math.floor(Date.now() / 1000),
+            event_id: eventId,
+            tid: PINTEREST_TID,
+            custom_data: data || {},
+            user_data: {}
+          })], {type: 'application/json'}));
+        console.log(sent ? `[Bridge]: Beacon sent.` : `[Bridge]: Beacon failed.`);
       } catch (err) {
         console.warn("[Bridge]: Beacon error:", err);
       }
     }
 
-    // --- Load Pinterest base script dynamically ---
-    const pinterestScript = document.createElement("script");
-    pinterestScript.src = "https://s.pinimg.com/ct/core.js";
-    pinterestScript.async = true;
-    pinterestScript.onload = function() {
-      console.log("[Pinterest]: core.js loaded successfully.");
+    // Load Pinterest core script
+    const s = document.createElement("script");
+    s.src = "https://s.pinimg.com/ct/core.js";
+    s.async = true;
+    s.onload = function() {
       if (typeof pintrk === "undefined") {
         window.pintrk = function() { (window.pintrk.queue = window.pintrk.queue || []).push(arguments) };
       }
       pintrk('load', PINTEREST_TID);
-      
-      // Give the SDK ~300ms to initialize before sending the event
       setTimeout(() => {
-        try {
-          pintrk('track', 'PageVisit');
-          console.log("[Bridge]: Pinterest PageVisit event fired via base tag.");
-        } catch (err) {
-          console.warn("[Bridge]: pintrk failed, using beacon only:", err);
-        }
-
-        // Always send beacon backup
+        pintrk('track', 'PageVisit');
         sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
-
-        // Redirect after safe delay
-        setTimeout(() => {
-          window.location.replace(CANVA_DESTINATION_URL);
-        }, 1800);
-      }, 300);
+        setTimeout(() => window.location.replace(CANVA_DESTINATION_URL), 800);
+      }, 100);
     };
-
-    pinterestScript.onerror = function() {
-      console.warn("[Pinterest]: Failed to load core.js, sending beacon only.");
+    s.onerror = function() {
       sendPinterestBeacon("PageVisit", { ad_id: adId || "none" });
-      setTimeout(() => {
-        window.location.replace(CANVA_DESTINATION_URL);
-      }, 1500);
+      setTimeout(() => window.location.replace(CANVA_DESTINATION_URL), 800);
     };
-
-    document.head.appendChild(pinterestScript);
+    document.head.appendChild(s);
   </script>
 </body>
 </html>
