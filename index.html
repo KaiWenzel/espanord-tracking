@@ -78,48 +78,57 @@
       return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
     }
 
-    const adId = getAdId();
-    pintrk('page');
-    pintrk('load', PINTEREST_TID);
+    // Get Ad ID immediately
+function getAdId() {
+    return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
+}
 
-    let eventData = {};
-    if (adId) {
-      eventData = { epk: adId };
-      console.log(`[Bridge]: Fired Pinterest PageVisit with EPK: ${adId}`);
-    } else {
-      console.log(`[Bridge]: Fired standard PageVisit.`);
+// Function to synchronously send the Pinterest PageVisit event
+function sendPinterestEvent(adId) {
+    if (!adId) {
+        // If no adId, fire the standard Pinterest event (non-synchronous, as usual)
+        pintrk('load', PINTEREST_TID);
+        pintrk('track', 'PageVisit');
+        console.log(`[Bridge]: Fired standard PageVisit (No EPK).`);
+        return; 
     }
-
-    // --- Send event and wait for completion ---
-    const eventPromise = new Promise((resolve) => {
-      try {
-        // Send Pinterest request manually so we can detect completion
-        navigator.sendBeacon
-          ? resolve(pintrk('track', 'PageVisit', eventData)) // sendBeacon is async-safe
-          : (pintrk('track', 'PageVisit', eventData), resolve());
-      } catch (e) {
-        console.warn('[Bridge]: Pinterest event failed silently.', e);
-        resolve();
-      }
-    });
-
-    // Store cookie if applicable
-    if (adId) {
-      document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+    
+    // --- Manual Synchronous Event Sending ---
+    const eventUrl = `https://ct.pinterest.com/v3/?tid=${PINTEREST_TID}&event=PageVisit&epk=${encodeURIComponent(adId)}&noscript=1`;
+    
+    try {
+        const xhr = new XMLHttpRequest();
+        // The third parameter 'false' makes the request synchronous
+        xhr.open('GET', eventUrl, false); 
+        xhr.send(null);
+        console.log(`[Bridge]: Synchornous PageVisit sent with EPK: ${adId}. Status: ${xhr.status}`);
+    } catch (e) {
+        console.error("[Bridge]: Synchronous XHR failed.", e);
+        // Fallback: Fire the standard pintrk event (better than nothing)
+        pintrk('load', PINTEREST_TID);
+        pintrk('track', 'PageVisit', { epk: adId });
     }
+}
 
-    const redirectUrl = adId
-      ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
-      : CANVA_DESTINATION_URL;
+// --- Main Logic ---
+const adId = getAdId();
 
-    // --- Wait for Pinterest request OR timeout ---
-    Promise.race([
-      eventPromise,
-      new Promise(r => setTimeout(r, REDIRECT_FALLBACK_MS))
-    ]).then(() => {
-      console.log("[Bridge]: Pinterest event completed or timeout reached. Redirecting...");
-      window.location.replace(redirectUrl);
-    });
+// 1. Manually set cookie (still good to have for general persistence)
+if (adId) {
+    document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+}
+
+// 2. Send the attributed Pinterest event SYNCHRONOUSLY
+sendPinterestEvent(adId);
+
+// 3. Redirect immediately after the synchronous call completes
+const redirectUrl = adId
+    ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
+    : CANVA_DESTINATION_URL;
+
+console.log("[Bridge]: Redirecting now.");
+// Redirect without a delay, as the synchronous call provided the necessary wait
+window.location.replace(redirectUrl);
   </script>
 </body>
 </html>
