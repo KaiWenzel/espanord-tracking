@@ -5,48 +5,16 @@
   <title>Españord Redirect</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
-    body {
-      font-family: Arial, sans-serif;
-      text-align: center;
-      padding-top: 60px;
-    }
-
-    h1, p {
-      opacity: 0;
-      animation: fadeIn 0.8s ease-in-out forwards;
-    }
-
-    h1 {
-      animation-delay: 0.1s;
-    }
-
-    p {
-      animation-delay: 0.4s;
-    }
-
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(10px); }
-      to { opacity: 1; transform: translateY(0); }
-    }
-
-    .spinner {
-      margin-top: 20px;
-      width: 30px;
-      height: 30px;
-      border: 3px solid #ccc;
-      border-top-color: #2b6cb0;
-      border-radius: 50%;
-      animation: spin 0.8s linear infinite;
-      display: inline-block;
-    }
-
-    @keyframes spin {
-      to { transform: rotate(360deg); }
-    }
+    body { font-family: Arial, sans-serif; text-align: center; padding-top: 60px; }
+    h1, p { opacity: 0; animation: fadeIn 0.8s ease-in-out forwards; }
+    h1 { animation-delay: 0.1s; } p { animation-delay: 0.4s; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px);} to { opacity: 1; transform: translateY(0);} }
+    .spinner { margin-top: 20px; width: 30px; height: 30px; border: 3px solid #ccc;
+               border-top-color: #2b6cb0; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
   </style>
 
   <script>
-    // --- OFFICIAL PINTEREST BASE CODE (must be first in <head>) ---
     !function(e){
       if(!window.pintrk){
         window.pintrk=function(){window.pintrk.queue.push(Array.prototype.slice.call(arguments))};
@@ -66,73 +34,48 @@
   <div class="spinner"></div>
 
   <script>
-    // --- CONFIG ---
     const MAIN_DOMAIN = 'xn--espaord-7za.com';
     const CANVA_DESTINATION_URL = 'https://xn--espaord-7za.com';
     const AD_ID_PARAM = 'epik';
     const COOKIE_NAME = 'campaign_ad_id';
     const PINTEREST_TID = '2612894781060';
-    const REDIRECT_FALLBACK_MS = 3000; // hard timeout (safety net)
+    const REDIRECT_FALLBACK_MS = 3000;
 
     function getAdId() {
       return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
     }
 
-    // Get Ad ID immediately
-function getAdId() {
-    return new URLSearchParams(window.location.search).get(AD_ID_PARAM);
-}
+    const adId = getAdId();
 
-// Function to synchronously send the Pinterest PageVisit event
-function sendPinterestEvent(adId) {
-    if (!adId) {
-        // If no adId, fire the standard Pinterest event (non-synchronous, as usual)
-        pintrk('load', PINTEREST_TID);
-        pintrk('track', 'PageVisit');
-        console.log(`[Bridge]: Fired standard PageVisit (No EPK).`);
-        return; 
+    pintrk('load', PINTEREST_TID);
+    pintrk('page');
+
+    let eventData = {};
+    if (adId) {
+      eventData = { epk: adId };
+      console.log(`[Bridge]: Fired Pinterest PageVisit with EPK: ${adId}`);
+    } else {
+      console.log(`[Bridge]: Fired standard PageVisit.`);
     }
-    
-    // --- Manual Synchronous Event Sending ---
-    const eventUrl = `https://ct.pinterest.com/v3/?tid=${PINTEREST_TID}&event=PageVisit&epk=${encodeURIComponent(adId)}&noscript=1`;
-    
+
     try {
-        const xhr = new XMLHttpRequest();
-        // The third parameter 'false' makes the request synchronous
-        xhr.open('GET', eventUrl, false); 
-        xhr.send(null);
-        console.log(`[Bridge]: Synchornous PageVisit sent with EPK: ${adId}. Status: ${xhr.status}`);
-    } catch (e) {
-        console.error("[Bridge]: Synchronous XHR failed.", e);
-        // Fallback: Fire the standard pintrk event (better than nothing)
-        pintrk('load', PINTEREST_TID);
-        pintrk('track', 'PageVisit', { epk: adId });
+      pintrk('track', 'PageVisit', eventData);
+    } catch (err) {
+      console.warn('[Bridge]: Pinterest tracking error', err);
     }
-}
 
-// --- Main Logic ---
-const adId = getAdId();
+    if (adId) {
+      document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
+    }
 
-// 1. Manually set cookie (still good to have for general persistence)
-if (adId) {
-    document.cookie = `${COOKIE_NAME}=${adId}; domain=.${MAIN_DOMAIN}; path=/; max-age=604800; secure; samesite=Lax`;
-}
+    const redirectUrl = adId
+      ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
+      : CANVA_DESTINATION_URL;
 
-// 2. Send the attributed Pinterest event SYNCHRONOUSLY
-sendPinterestEvent(adId);
-
-// 3. Redirect immediately after the synchronous call completes
-const redirectUrl = adId
-    ? `${CANVA_DESTINATION_URL}?epik=${encodeURIComponent(adId)}`
-    : CANVA_DESTINATION_URL;
-
-console.log("[Bridge]: Redirecting now.");
-// Redirect without a delay, as the synchronous call provided the necessary wait
-window.onbeforeunload = () => {
-  console.log("[Bridge]: Redirecting away...");
-  alert("Redirecting — check console logs before this alert closes!");
-};
-
+    setTimeout(() => {
+      console.log("[Bridge]: Redirecting...");
+      window.location.replace(redirectUrl);
+    }, REDIRECT_FALLBACK_MS);
   </script>
 </body>
 </html>
